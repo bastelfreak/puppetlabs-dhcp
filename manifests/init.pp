@@ -25,7 +25,7 @@ class dhcp (
   $globaloptions       = '',
   $omapi_port          = undef,
   $extra_config        = '',
-) {
+) inherits dhcp::params {
 
   if $dnsdomain == undef {
     if $::domain {
@@ -53,7 +53,6 @@ class dhcp (
     }
   }
 
-  include dhcp::params
   include dhcp::monitor
 
   $dhcp_dir         = $dhcp::params::dhcp_dir
@@ -211,6 +210,14 @@ class dhcp (
     order   => '01',
   }
 
+  # manage service
+  file{'/usr/lib/systemd/system/dhcpd4.service':
+    source  => template('dhcp/dhcpd4.systemd.erb'),
+    mode    => '0644',
+    owner   => 'root',
+    group    => 'root',
+  }
+
   service { $servicename:
     ensure    => $service_ensure,
     enable    => true,
@@ -218,4 +225,7 @@ class dhcp (
     subscribe => [Concat["${dhcp_dir}/dhcpd.pools"], Concat["${dhcp_dir}/dhcpd.hosts"], Concat["${dhcp_dir}/dhcpd.conf"]],
     require   => Package[$packagename],
   }
+  class { '::dhcp::install': } ->
+  class { '::dhcp::config': } ~>
+  class { '::dhcp::service': }
 }
