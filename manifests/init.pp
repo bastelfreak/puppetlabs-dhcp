@@ -1,39 +1,43 @@
 # == Class: dhcp
 #
 class dhcp (
-  $dnsdomain           = undef,
-  $nameservers         = [ '8.8.8.8', '8.8.4.4' ],
-  $ntpservers          = [],
-  $dhcp_conf_header    = 'INTERNAL_TEMPLATE',
-  $dhcp_conf_ddns      = 'INTERNAL_TEMPLATE',
-  $dhcp_conf_ntp       = 'INTERNAL_TEMPLATE',
-  $dhcp_conf_pxe       = 'INTERNAL_TEMPLATE',
-  $dhcp_conf_extra     = 'INTERNAL_TEMPLATE',
+  $dnsdomain            = undef,
+  $nameservers          = [ '8.8.8.8', '8.8.4.4' ],
+  $ntpservers           = [],
+  $dhcp_conf_header     = 'INTERNAL_TEMPLATE',
+  $dhcp_conf_ddns       = 'INTERNAL_TEMPLATE',
+  $dhcp_conf_ntp        = 'INTERNAL_TEMPLATE',
+  $dhcp_conf_pxe        = 'INTERNAL_TEMPLATE',
+  $dhcp_conf_extra      = 'INTERNAL_TEMPLATE',
   $dhcp_conf_fragments = {},
-  $interfaces          = undef,
-  $interface           = 'NOTSET',
-  $dnsupdatekey        = undef,
-  $dnskeyname          = undef,
-  $pxeserver           = undef,
-  $pxefilename         = undef,
-  $ipxe_filename       = undef,
-  $ipxe_bootstrap      = undef,
-  $logfacility         = 'daemon',
-  $default_lease_time  = 3600,
-  $max_lease_time      = 86400,
-  $service_ensure      = running,
-  $globaloptions       = '',
-  $omapi_port          = undef,
-  $extra_config        = '',
-  $ldap_port           = 389,
-  $ldap_server         = 'localhost',
-  $ldap_username       = 'cn=root, dc=example, dc=com',
-  $ldap_password       = '',
-  $ldap_base_dn        = 'dc=example, dc=com',
-  $ldap_method         = 'dynamic',
-  $ldap_debug_file     = '/var/log/dhcp-ldap-startup.log',
-  $use_ldap            = false,
-) {
+  $interfaces           = undef,
+  $interface            = 'NOTSET',
+  $dnsupdatekey         = undef,
+  $dnskeyname           = undef,
+  $pxeserver            = undef,
+  $pxefilename          = undef,
+  $ipxe_filename        = undef,
+  $ipxe_bootstrap       = undef,
+  $logfacility          = 'daemon',
+  $default_lease_time   = 3600,
+  $max_lease_time       = 86400,
+  $service_ensure       = running,
+  $globaloptions        = '',
+  $omapi_port           = undef,
+  $extra_config         = '',
+  $dhcp_dir             = $dhcp::params::dhcp_dir,
+  $packagename          = $dhcp::params::packagename,
+  $servicename          = $dhcp::params::servicename,
+  $package_provider     = $dhcp::params::package_provider,
+  $ldap_port            = 389,
+  $ldap_server          = 'localhost',
+  $ldap_username        = 'cn=root, dc=example, dc=com',
+  $ldap_password        = '',
+  $ldap_base_dn         = 'dc=example, dc=com',
+  $ldap_method          = 'dynamic',
+  $ldap_debug_file      = undef,
+  $use_ldap             = false,
+) inherits dhcp::params {
 
   if $dnsdomain == undef {
     if $::domain {
@@ -60,14 +64,6 @@ class dhcp (
       fail( '$ipxe_filename and $ipxe_bootstrap are required when enabling ipxe' )
     }
   }
-
-  include dhcp::params
-  include dhcp::monitor
-
-  $dhcp_dir         = $dhcp::params::dhcp_dir
-  $packagename      = $dhcp::params::packagename
-  $servicename      = $dhcp::params::servicename
-  $package_provider = $dhcp::params::package_provider
 
   # Incase people set interface instead of interfaces work around
   # that. If they set both, use interfaces and the user is a unwise
@@ -127,7 +123,7 @@ class dhcp (
 
   # Only debian and ubuntu have this style of defaults for startup.
   case $::osfamily {
-    'debian': {
+    'Debian': {
       file{ '/etc/default/isc-dhcp-server':
         ensure  => present,
         owner   => 'root',
@@ -138,7 +134,7 @@ class dhcp (
         content => template('dhcp/debian/default_isc-dhcp-server'),
       }
     }
-    'redhat': {
+    'RedHat': {
       file{ '/etc/sysconfig/dhcpd':
         ensure  => present,
         owner   => 'root',
@@ -208,7 +204,7 @@ class dhcp (
   concat::fragment { 'dhcp-ignoredsubnets-header':
     target  => "${dhcp_dir}/dhcpd.ignoredsubnets",
     content => "# DHCP Subnets (ignored)\n",
-    order   => 01,
+    order   => '01',
   }
 
   # dhcpd.hosts
@@ -219,7 +215,9 @@ class dhcp (
     order   => '01',
   }
 
-  if $ldap_method {
+  # check if this is really a bool
+  validate_bool($use_ldap)
+  if $use_ldap {
     unless ($ldap_method in ['dynamic', 'static']) {
       fail('$ldap_method must be dynamic or static')
     }
